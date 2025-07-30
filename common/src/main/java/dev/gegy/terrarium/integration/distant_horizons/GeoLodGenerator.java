@@ -96,6 +96,10 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
 
         final GeoBiomeSource.FlatChunkResolver biomeResolver = biomeSource.chunkResolver(geoChunk);
 
+        // Add debug logging to verify our enhanced LOD generation is being called
+        LOGGER.info("Building LOD with enhanced surface materials for chunk at ({}, {})", 
+                   geoChunk.getView().minX(), geoChunk.getView().minZ());
+
         generator.buildLod(new GeoChunkGenerator.LodOutput() {
             private final List<DhApiTerrainDataPoint> columnDataPoints = new ArrayList<>();
             private int columnX;
@@ -120,7 +124,22 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
                 }
                 final IDhApiBlockStateWrapper block = wrappers.getBlockState(blockState);
                 final IDhApiBiomeWrapper biome = Objects.requireNonNull(columnBiome);
-                columnDataPoints.add(DhApiTerrainDataPoint.create((byte) 0, 0, 0, lastLayerTop, layerTop, block, biome));
+                
+                // Create terrain data point with enhanced information
+                // Using detail level 0 for full detail, and providing proper terrain information
+                final byte detailLevel = 0; // Full detail for surface materials
+                final byte terrainType = getTerrainType(blockState);
+                final byte surfaceMaterial = getSurfaceMaterialType(blockState);
+                
+                columnDataPoints.add(DhApiTerrainDataPoint.create(
+                    detailLevel, 
+                    terrainType, 
+                    surfaceMaterial, 
+                    lastLayerTop, 
+                    layerTop, 
+                    block, 
+                    biome
+                ));
                 lastLayerTop = layerTop;
             }
 
@@ -128,7 +147,16 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
             public void endColumn() {
                 if (lastLayerTop < absoluteTop) {
                     final IDhApiBiomeWrapper biome = Objects.requireNonNull(columnBiome);
-                    columnDataPoints.add(DhApiTerrainDataPoint.create((byte) 0, 0, 0, lastLayerTop, absoluteTop, wrappers.airBlock(), biome));
+                    // Add air layer with proper terrain information
+                    columnDataPoints.add(DhApiTerrainDataPoint.create(
+                        (byte) 0, // Full detail
+                        (byte) 0, // Air terrain type
+                        (byte) 0, // Air surface material
+                        lastLayerTop, 
+                        absoluteTop, 
+                        wrappers.airBlock(), 
+                        biome
+                    ));
                 }
 
                 output.setApiDataPointColumn(columnX, columnZ, columnDataPoints);
@@ -149,6 +177,70 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
 
     @Override
     public void close() {
+    }
+
+    /**
+     * Determines the terrain type based on the block state.
+     * This helps Distant Horizons understand the terrain structure for better rendering.
+     */
+    private static byte getTerrainType(final BlockState blockState) {
+        final var block = blockState.getBlock();
+        if (block == net.minecraft.world.level.block.Blocks.WATER) {
+            return 1; // Water
+        } else if (block == net.minecraft.world.level.block.Blocks.SNOW) {
+            return 2; // Snow
+        } else if (block == net.minecraft.world.level.block.Blocks.GRASS_BLOCK) {
+            return 3; // Grass
+        } else if (block == net.minecraft.world.level.block.Blocks.PODZOL) {
+            return 4; // Podzol (forest floor)
+        } else if (block == net.minecraft.world.level.block.Blocks.FARMLAND) {
+            return 5; // Farmland
+        } else if (block == net.minecraft.world.level.block.Blocks.SAND) {
+            return 6; // Sand
+        } else if (block == net.minecraft.world.level.block.Blocks.STONE) {
+            return 7; // Stone
+        } else if (block == net.minecraft.world.level.block.Blocks.STONE_BRICKS) {
+            return 8; // Urban/Man-made
+        } else if (block == net.minecraft.world.level.block.Blocks.COARSE_DIRT) {
+            return 9; // Sparse vegetation
+        } else if (block == net.minecraft.world.level.block.Blocks.DIRT) {
+            return 10; // Dirt
+        } else if (block == net.minecraft.world.level.block.Blocks.PACKED_ICE) {
+            return 11; // Ice
+        } else {
+            return 0; // Default/Unknown
+        }
+    }
+
+    /**
+     * Determines the surface material type for better LOD rendering.
+     * This provides additional context about the surface material properties.
+     */
+    private static byte getSurfaceMaterialType(final BlockState blockState) {
+        final var block = blockState.getBlock();
+        if (block == net.minecraft.world.level.block.Blocks.WATER) {
+            return 1; // Liquid
+        } else if (block == net.minecraft.world.level.block.Blocks.SNOW || 
+                   block == net.minecraft.world.level.block.Blocks.PACKED_ICE) {
+            return 2; // Snow/Ice
+        } else if (block == net.minecraft.world.level.block.Blocks.GRASS_BLOCK) {
+            return 3; // Vegetation
+        } else if (block == net.minecraft.world.level.block.Blocks.PODZOL) {
+            return 4; // Forest floor
+        } else if (block == net.minecraft.world.level.block.Blocks.FARMLAND) {
+            return 5; // Cultivated
+        } else if (block == net.minecraft.world.level.block.Blocks.SAND) {
+            return 6; // Sandy
+        } else if (block == net.minecraft.world.level.block.Blocks.STONE || 
+                   block == net.minecraft.world.level.block.Blocks.STONE_BRICKS) {
+            return 7; // Rocky
+        } else if (block == net.minecraft.world.level.block.Blocks.COARSE_DIRT) {
+            return 8; // Sparse
+        } else if (block == net.minecraft.world.level.block.Blocks.DIRT) {
+            return 9; // Earthy
+        } else {
+            return 0; // Default
+        }
     }
 
     private static class WrapperCache {

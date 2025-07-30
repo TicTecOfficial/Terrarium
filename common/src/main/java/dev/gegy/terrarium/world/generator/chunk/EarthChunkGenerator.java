@@ -8,6 +8,11 @@ import dev.gegy.terrarium.backend.GeoChunk;
 import dev.gegy.terrarium.backend.earth.EarthAttachments;
 import dev.gegy.terrarium.backend.earth.EarthConfiguration;
 import dev.gegy.terrarium.backend.earth.EarthLayers;
+import dev.gegy.terrarium.backend.earth.climate.RainfallRaster;
+import dev.gegy.terrarium.backend.earth.climate.TemperatureRaster;
+import dev.gegy.terrarium.backend.earth.cover.Cover;
+import dev.gegy.terrarium.backend.earth.soil.SoilSuborder;
+import dev.gegy.terrarium.backend.raster.EnumRaster;
 import dev.gegy.terrarium.backend.raster.ShortRaster;
 import dev.gegy.terrarium.backend.tile.GuavaTileCache;
 import dev.gegy.terrarium.world.GeoProvider;
@@ -290,7 +295,14 @@ public class EarthChunkGenerator extends GeoChunkGenerator {
         }
 
         final ShortRaster elevation = earth.get().elevation();
+        final EnumRaster<Cover> landCover = earth.get().landCover();
+        final EnumRaster<SoilSuborder> soilSuborder = earth.get().soilSuborder();
+        final TemperatureRaster meanTemperature = earth.get().meanTemperature();
+        final RainfallRaster annualRainfall = earth.get().annualRainfall();
         final int seaLevel = getSeaLevel();
+
+        // Add debug logging to verify enhanced surface materials are being used
+        System.out.println("Enhanced LOD generation: Using land cover, soil, and climate data for surface materials");
 
         for (int z = 0; z < elevation.height(); z++) {
             for (int x = 0; x < elevation.width(); x++) {
@@ -298,15 +310,118 @@ public class EarthChunkGenerator extends GeoChunkGenerator {
                 output.beginColumn(x, z, biome);
 
                 final int surfaceY = transformElevationToY(elevation.getInt(x, z));
+                final Cover cover = landCover.get(x, z);
+                final SoilSuborder soil = soilSuborder.get(x, z);
+                final float temperature = meanTemperature.getTemperature(x, z);
+                final float rainfall = annualRainfall.getRainfall(x, z);
+
                 if (surfaceY >= seaLevel) {
-                    output.addLayerUpTo(surfaceY, fillBlock);
+                    // Land surface - use appropriate surface material
+                    final BlockState surfaceMaterial = getLodSurfaceMaterial(cover, soil, temperature, rainfall, surfaceY);
+                    System.out.println("Selected surface material: " + surfaceMaterial.getBlock().getDescriptionId() + " for " + cover.getName());
+                    output.addLayerUpTo(surfaceY, surfaceMaterial);
                 } else {
-                    output.addLayerUpTo(surfaceY, fillBlock);
+                    // Underwater - use appropriate underwater material
+                    final BlockState underwaterMaterial = getLodUnderwaterMaterial(cover, soil, temperature);
+                    System.out.println("Selected underwater material: " + underwaterMaterial.getBlock().getDescriptionId() + " for " + cover.getName());
+                    output.addLayerUpTo(surfaceY, underwaterMaterial);
                     output.addLayerUpTo(seaLevel, fluidBlock);
                 }
 
                 output.endColumn();
             }
         }
+    }
+
+    private BlockState getLodSurfaceMaterial(final Cover landCover, final SoilSuborder soilSuborder, final float temperature, final float rainfall, final int elevation) {
+        // High elevation areas get stone regardless of cover
+        if (elevation > getSeaLevel() + 100) {
+            return Blocks.STONE.defaultBlockState();
+        }
+
+        // Very cold areas get snow
+        if (temperature < -5.0f) {
+            return Blocks.SNOW.defaultBlockState();
+        }
+
+        // Debug logging for surface material selection
+        if (landCover != Cover.NONE) {
+            System.out.println("LOD Surface Material: " + landCover.getName() + " (temp: " + temperature + "°C, elevation: " + elevation + ")");
+        }
+
+        return switch (landCover) {
+            // Forest types - should be green
+            case BROADLEAF_EVERGREEN, BROADLEAF_DECIDUOUS, BROADLEAF_DECIDUOUS_CLOSED, BROADLEAF_DECIDUOUS_OPEN ->
+                Blocks.GRASS_BLOCK.defaultBlockState();
+            case NEEDLE_LEAF_EVERGREEN, NEEDLE_LEAF_EVERGREEN_CLOSED, NEEDLE_LEAF_EVERGREEN_OPEN,
+                 NEEDLE_LEAF_DECIDUOUS, NEEDLE_LEAF_DECIDUOUS_CLOSED, NEEDLE_LEAF_DECIDUOUS_OPEN ->
+                Blocks.PODZOL.defaultBlockState();
+            case MIXED_LEAF_TYPE ->
+                temperature > 10.0f ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.PODZOL.defaultBlockState();
+
+            // Grassland and herbaceous cover - should be green
+            case GRASSLAND, HERBACEOUS_COVER, HERBACEOUS_COVER_WITH_TREE_AND_SHRUB ->
+                Blocks.GRASS_BLOCK.defaultBlockState();
+
+            // Shrubland - should be green
+            case SHRUBLAND, SHRUBLAND_EVERGREEN, SHRUBLAND_DECIDUOUS, TREE_AND_SHRUB_WITH_HERBACEOUS_COVER ->
+                Blocks.GRASS_BLOCK.defaultBlockState();
+
+            // Cropland - brown but should be farmland
+            case RAINFED_CROPLAND, IRRIGATED_CROPLAND, CROPLAND_WITH_VEGETATION, VEGETATION_WITH_CROPLAND ->
+                Blocks.FARMLAND.defaultBlockState();
+
+            // Sparse vegetation - this might be the brown you're seeing
+            case SPARSE_VEGETATION, SPARSE_TREE, SPARSE_SHRUB, SPARSE_HERBACEOUS_COVER ->
+                Blocks.COARSE_DIRT.defaultBlockState();
+
+            // Lichens and mosses (tundra-like)
+            case LICHENS_AND_MOSSES ->
+                temperature < 5.0f ? Blocks.SNOW.defaultBlockState() : Blocks.GRASS_BLOCK.defaultBlockState();
+
+            // Bare areas - stone/grey
+            case BARE, BARE_CONSOLIDATED ->
+                Blocks.STONE.defaultBlockState();
+            case BARE_UNCONSOLIDATED ->
+                Blocks.SAND.defaultBlockState();
+
+            // Urban areas - grey
+            case URBAN ->
+                Blocks.STONE_BRICKS.defaultBlockState();
+
+            // Water areas (shouldn't reach here but just in case)
+            case WATER ->
+                Blocks.WATER.defaultBlockState();
+
+            // Permanent snow - white
+            case PERMANENT_SNOW ->
+                Blocks.SNOW.defaultBlockState();
+
+            // Flooded areas - should be green
+            case FRESH_FLOODED_FOREST, SALINE_FLOODED_FOREST, FLOODED_VEGETATION ->
+                Blocks.GRASS_BLOCK.defaultBlockState();
+
+            // Tree or shrub cover (generic) - should be green
+            case TREE_OR_SHRUB_COVER ->
+                temperature > 15.0f ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.PODZOL.defaultBlockState();
+
+            // Default fallback - stone
+            default ->
+                Blocks.STONE.defaultBlockState();
+        };
+    }
+
+    private BlockState getLodUnderwaterMaterial(final Cover landCover, final SoilSuborder soilSuborder, final float temperature) {
+        // Underwater materials based on what would be there if it wasn't underwater
+        return switch (landCover) {
+            case BARE_UNCONSOLIDATED, SPARSE_VEGETATION ->
+                Blocks.SAND.defaultBlockState();
+            case BARE, BARE_CONSOLIDATED, URBAN ->
+                Blocks.STONE.defaultBlockState();
+            case PERMANENT_SNOW ->
+                temperature < -10.0f ? Blocks.PACKED_ICE.defaultBlockState() : Blocks.STONE.defaultBlockState();
+            default ->
+                Blocks.DIRT.defaultBlockState();
+        };
     }
 }
