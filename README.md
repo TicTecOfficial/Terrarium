@@ -4,7 +4,7 @@
 
 with the power of the funy AI and my horrendous english, i have accomplished an **absolute abomination** of a code to implement terrarium's missing DH surface materials, and, as a bonus, a max height of **4064 blocks** from the sea level.
 
-(y-203: sea level, y+2032: maximum generation height)
+(y-2032: sea level, y+2032: maximum generation height)
 
 unfortunately, this AI-driven garbage has many downsides:
 - due to the sea level being literally at the minimum possible height, there is literally **no vanilla water**, and thus definitely not vanilla-friendly.
