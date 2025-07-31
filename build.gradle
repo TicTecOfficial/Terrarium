@@ -5,6 +5,11 @@ plugins {
 
 subprojects {
   apply plugin: 'java'
+  // Make sure to apply fabric-loom to your actual mod subproject,
+  // typically in a subproject-specific build.gradle or using a 'allprojects' block if you want it everywhere
+  // If your main mod project is in a subfolder like 'mymod', its build.gradle would have:
+  // apply plugin: 'fabric-loom'
+  // This example assumes your main mod is where you want to add the dependency for running.
 
   group = maven_group
   version = "$version+$minecraft_version"
@@ -27,10 +32,17 @@ subprojects {
       url = 'https://api.modrinth.com/maven/'
       content { includeGroup 'maven.modrinth' }
     }
+    // --- ADD THIS BLOCK FOR LOCAL MODS ---
+    flatDir {
+      dirs '../mods' // Point to the 'mods' folder in the project root
+    }
+    // -------------------------------------
   }
 
   dependencies {
     implementation 'com.google.code.findbugs:jsr305:3.0.2'
+
+
   }
 
   jar {

@@ -96,9 +96,7 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
 
         final GeoBiomeSource.FlatChunkResolver biomeResolver = biomeSource.chunkResolver(geoChunk);
 
-        // Add debug logging to verify our enhanced LOD generation is being called
-        LOGGER.info("Building LOD with enhanced surface materials for chunk at ({}, {})", 
-                   geoChunk.getView().minX(), geoChunk.getView().minZ());
+        // Building LOD with enhanced surface materials
 
         generator.buildLod(new GeoChunkGenerator.LodOutput() {
             private final List<DhApiTerrainDataPoint> columnDataPoints = new ArrayList<>();
@@ -125,19 +123,19 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
                 final IDhApiBlockStateWrapper block = wrappers.getBlockState(blockState);
                 final IDhApiBiomeWrapper biome = Objects.requireNonNull(columnBiome);
                 
-                // Create terrain data point with enhanced information
-                // Using detail level 0 for full detail, and providing proper terrain information
+                // Create terrain data point using standard Distant Horizons API
+                // Note: Standard API doesn't support terrain/surface material types yet
                 final byte detailLevel = 0; // Full detail for surface materials
-                final byte terrainType = getTerrainType(blockState);
-                final byte surfaceMaterial = getSurfaceMaterialType(blockState);
-                
+                final int blockLightLevel = 15; // Default light level
+                final int skyLightLevel = 15; // Default sky light level
+
                 columnDataPoints.add(DhApiTerrainDataPoint.create(
-                    detailLevel, 
-                    terrainType, 
-                    surfaceMaterial, 
-                    lastLayerTop, 
-                    layerTop, 
-                    block, 
+                    detailLevel,
+                    blockLightLevel,
+                    skyLightLevel,
+                    lastLayerTop,
+                    layerTop,
+                    block,
                     biome
                 ));
                 lastLayerTop = layerTop;
@@ -147,14 +145,14 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
             public void endColumn() {
                 if (lastLayerTop < absoluteTop) {
                     final IDhApiBiomeWrapper biome = Objects.requireNonNull(columnBiome);
-                    // Add air layer with proper terrain information
+                    // Add air layer using standard API
                     columnDataPoints.add(DhApiTerrainDataPoint.create(
                         (byte) 0, // Full detail
-                        (byte) 0, // Air terrain type
-                        (byte) 0, // Air surface material
-                        lastLayerTop, 
-                        absoluteTop, 
-                        wrappers.airBlock(), 
+                        15, // Block light level for air
+                        15, // Sky light level for air
+                        lastLayerTop,
+                        absoluteTop,
+                        wrappers.airBlock(),
                         biome
                     ));
                 }
@@ -220,7 +218,7 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
         final var block = blockState.getBlock();
         if (block == net.minecraft.world.level.block.Blocks.WATER) {
             return 1; // Liquid
-        } else if (block == net.minecraft.world.level.block.Blocks.SNOW || 
+        } else if (block == net.minecraft.world.level.block.Blocks.SNOW ||
                    block == net.minecraft.world.level.block.Blocks.PACKED_ICE) {
             return 2; // Snow/Ice
         } else if (block == net.minecraft.world.level.block.Blocks.GRASS_BLOCK) {
@@ -231,7 +229,7 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
             return 5; // Cultivated
         } else if (block == net.minecraft.world.level.block.Blocks.SAND) {
             return 6; // Sandy
-        } else if (block == net.minecraft.world.level.block.Blocks.STONE || 
+        } else if (block == net.minecraft.world.level.block.Blocks.STONE ||
                    block == net.minecraft.world.level.block.Blocks.STONE_BRICKS) {
             return 7; // Rocky
         } else if (block == net.minecraft.world.level.block.Blocks.COARSE_DIRT) {

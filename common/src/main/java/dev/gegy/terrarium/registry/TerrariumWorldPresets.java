@@ -48,12 +48,12 @@ public class TerrariumWorldPresets {
                         context.lookup(TerrariumRegistries.BIOME_CLASSIFIER).getOrThrow(TerrariumBiomeClassifiers.EARTH),
                         context.lookup(Registries.BIOME).getOrThrow(Biomes.THE_VOID)
                 ),
-                DimensionDefaults.OVERWORLD_MIN_Y,
-                DimensionDefaults.OVERWORLD_LEVEL_HEIGHT,
+                -2032, // Extended height: min Y
+                4064,  // Extended height: total height (from Y -2032 to Y +2032)
                 new EarthConfiguration(
                         new Mercator(50000.0),
                         100.0f,
-                        63
+                        -2032  // Sea level at Y -2032
                 )
         );
     }

@@ -9,10 +9,10 @@
           "classifier": "terrarium:earth",
           "fallback": "minecraft:the_void"
         },
-        "height": 384,
-        "height_offset": 63,
+        "height": 4064,
+        "height_offset": -2032,
         "height_scale": 100.0,
-        "min_y": -64,
+        "min_y": -2032,
         "projection": {
           "type": "mercator",
           "meters_per_block": 50000.0

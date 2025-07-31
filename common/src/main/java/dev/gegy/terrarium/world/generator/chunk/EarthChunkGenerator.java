@@ -301,8 +301,7 @@ public class EarthChunkGenerator extends GeoChunkGenerator {
         final RainfallRaster annualRainfall = earth.get().annualRainfall();
         final int seaLevel = getSeaLevel();
 
-        // Add debug logging to verify enhanced surface materials are being used
-        System.out.println("Enhanced LOD generation: Using land cover, soil, and climate data for surface materials");
+        // Enhanced LOD generation using land cover, soil, and climate data
 
         for (int z = 0; z < elevation.height(); z++) {
             for (int x = 0; x < elevation.width(); x++) {
@@ -318,12 +317,13 @@ public class EarthChunkGenerator extends GeoChunkGenerator {
                 if (surfaceY >= seaLevel) {
                     // Land surface - use appropriate surface material
                     final BlockState surfaceMaterial = getLodSurfaceMaterial(cover, soil, temperature, rainfall, surfaceY);
-                    System.out.println("Selected surface material: " + surfaceMaterial.getBlock().getDescriptionId() + " for " + cover.getName());
+
+
+
                     output.addLayerUpTo(surfaceY, surfaceMaterial);
                 } else {
                     // Underwater - use appropriate underwater material
                     final BlockState underwaterMaterial = getLodUnderwaterMaterial(cover, soil, temperature);
-                    System.out.println("Selected underwater material: " + underwaterMaterial.getBlock().getDescriptionId() + " for " + cover.getName());
                     output.addLayerUpTo(surfaceY, underwaterMaterial);
                     output.addLayerUpTo(seaLevel, fluidBlock);
                 }
@@ -334,56 +334,148 @@ public class EarthChunkGenerator extends GeoChunkGenerator {
     }
 
     private BlockState getLodSurfaceMaterial(final Cover landCover, final SoilSuborder soilSuborder, final float temperature, final float rainfall, final int elevation) {
-        // High elevation areas get stone regardless of cover
-        if (elevation > getSeaLevel() + 100) {
+        // Very cold areas get snow (highest priority for visual accuracy)
+        if (temperature < -5.0f) {
+            return Blocks.SNOW_BLOCK.defaultBlockState();
+        }
+
+        // Hot and dry areas get colorful desert materials based on elevation and temperature
+        if (temperature > 20.0f && rainfall < 400.0f) {
+            if (temperature > 35.0f && rainfall < 100.0f) {
+                return Blocks.RED_SAND.defaultBlockState(); // Extreme hot desert
+            } else if (temperature > 30.0f && rainfall < 200.0f) {
+                return Blocks.ORANGE_TERRACOTTA.defaultBlockState(); // Hot arid desert
+            } else if (temperature > 25.0f && rainfall < 300.0f) {
+                return Blocks.YELLOW_TERRACOTTA.defaultBlockState(); // Warm semi-arid
+            } else {
+                return Blocks.SAND.defaultBlockState(); // Regular desert
+            }
+        }
+
+        // High elevation areas get stone only if EXTREMELY high and not cold
+        // Further reduced to minimize stone dominance - only true mountain peaks
+        if (elevation > getSeaLevel() + 800 && temperature > 0.0f) {
             return Blocks.STONE.defaultBlockState();
         }
 
-        // Very cold areas get snow
-        if (temperature < -5.0f) {
-            return Blocks.SNOW.defaultBlockState();
-        }
-
-        // Debug logging for surface material selection
-        if (landCover != Cover.NONE) {
-            System.out.println("LOD Surface Material: " + landCover.getName() + " (temp: " + temperature + "°C, elevation: " + elevation + ")");
-        }
+        // Surface material selection based on land cover, climate, and elevation
 
         return switch (landCover) {
-            // Forest types - should be green
-            case BROADLEAF_EVERGREEN, BROADLEAF_DECIDUOUS, BROADLEAF_DECIDUOUS_CLOSED, BROADLEAF_DECIDUOUS_OPEN ->
-                Blocks.GRASS_BLOCK.defaultBlockState();
+            // Forest types - colorful climate-aware materials
+            case BROADLEAF_EVERGREEN -> {
+                if (temperature > 25.0f && rainfall > 1200.0f) {
+                    yield Blocks.MOSS_BLOCK.defaultBlockState(); // Tropical rainforest
+                } else if (temperature > 20.0f && rainfall > 800.0f) {
+                    yield Blocks.JUNGLE_LEAVES.defaultBlockState(); // Subtropical forest
+                } else {
+                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Temperate evergreen
+                }
+            }
+            case BROADLEAF_DECIDUOUS, BROADLEAF_DECIDUOUS_CLOSED, BROADLEAF_DECIDUOUS_OPEN -> {
+                if (temperature < 5.0f) {
+                    yield Blocks.PODZOL.defaultBlockState(); // Cold deciduous
+                } else if (rainfall < 400.0f) {
+                    yield Blocks.COARSE_DIRT.defaultBlockState(); // Dry deciduous
+                } else {
+                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Temperate deciduous
+                }
+            }
             case NEEDLE_LEAF_EVERGREEN, NEEDLE_LEAF_EVERGREEN_CLOSED, NEEDLE_LEAF_EVERGREEN_OPEN,
-                 NEEDLE_LEAF_DECIDUOUS, NEEDLE_LEAF_DECIDUOUS_CLOSED, NEEDLE_LEAF_DECIDUOUS_OPEN ->
-                Blocks.PODZOL.defaultBlockState();
-            case MIXED_LEAF_TYPE ->
-                temperature > 10.0f ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.PODZOL.defaultBlockState();
+                 NEEDLE_LEAF_DECIDUOUS, NEEDLE_LEAF_DECIDUOUS_CLOSED, NEEDLE_LEAF_DECIDUOUS_OPEN -> {
+                if (temperature < -5.0f) {
+                    yield Blocks.SNOW_BLOCK.defaultBlockState(); // Arctic boreal
+                } else if (temperature < 0.0f) {
+                    yield Blocks.POWDER_SNOW.defaultBlockState(); // Cold boreal
+                } else if (temperature < 10.0f) {
+                    yield Blocks.PODZOL.defaultBlockState(); // Boreal forest
+                } else {
+                    yield Blocks.MYCELIUM.defaultBlockState(); // Temperate coniferous
+                }
+            }
+            case MIXED_LEAF_TYPE -> {
+                if (temperature > 15.0f && rainfall > 800.0f) {
+                    yield Blocks.MOSS_BLOCK.defaultBlockState(); // Wet mixed forest
+                } else if (temperature > 10.0f) {
+                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Temperate mixed
+                } else {
+                    yield Blocks.PODZOL.defaultBlockState(); // Cold mixed
+                }
+            }
 
-            // Grassland and herbaceous cover - should be green
-            case GRASSLAND, HERBACEOUS_COVER, HERBACEOUS_COVER_WITH_TREE_AND_SHRUB ->
-                Blocks.GRASS_BLOCK.defaultBlockState();
+            // Grassland and herbaceous cover - colorful climate-aware materials
+            case GRASSLAND, HERBACEOUS_COVER, HERBACEOUS_COVER_WITH_TREE_AND_SHRUB -> {
+                if (temperature < -5.0f) {
+                    yield Blocks.SNOW_BLOCK.defaultBlockState(); // Cold grassland
+                } else if (temperature > 30.0f && rainfall < 300.0f) {
+                    yield Blocks.YELLOW_TERRACOTTA.defaultBlockState(); // Hot dry savanna
+                } else if (temperature > 25.0f && rainfall < 500.0f) {
+                    yield Blocks.ORANGE_TERRACOTTA.defaultBlockState(); // Warm dry grassland
+                } else if (rainfall > 1000.0f) {
+                    yield Blocks.MOSS_BLOCK.defaultBlockState(); // Wet grassland
+                } else if (rainfall < 300.0f) {
+                    yield Blocks.BROWN_TERRACOTTA.defaultBlockState(); // Dry steppe
+                } else {
+                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Normal grassland
+                }
+            }
 
-            // Shrubland - should be green
-            case SHRUBLAND, SHRUBLAND_EVERGREEN, SHRUBLAND_DECIDUOUS, TREE_AND_SHRUB_WITH_HERBACEOUS_COVER ->
-                Blocks.GRASS_BLOCK.defaultBlockState();
+            // Shrubland - colorful climate-aware materials
+            case SHRUBLAND, SHRUBLAND_EVERGREEN, SHRUBLAND_DECIDUOUS, TREE_AND_SHRUB_WITH_HERBACEOUS_COVER -> {
+                if (temperature < -5.0f) {
+                    yield Blocks.SNOW_BLOCK.defaultBlockState(); // Cold shrubland
+                } else if (temperature > 30.0f && rainfall < 400.0f) {
+                    yield Blocks.RED_SAND.defaultBlockState(); // Desert shrubland
+                } else if (temperature > 25.0f && rainfall < 600.0f) {
+                    yield Blocks.ORANGE_TERRACOTTA.defaultBlockState(); // Arid shrubland
+                } else if (rainfall > 800.0f) {
+                    yield Blocks.MOSS_BLOCK.defaultBlockState(); // Wet shrubland
+                } else {
+                    yield Blocks.COARSE_DIRT.defaultBlockState(); // Temperate shrubland
+                }
+            }
 
             // Cropland - brown but should be farmland
             case RAINFED_CROPLAND, IRRIGATED_CROPLAND, CROPLAND_WITH_VEGETATION, VEGETATION_WITH_CROPLAND ->
                 Blocks.FARMLAND.defaultBlockState();
 
-            // Sparse vegetation - this might be the brown you're seeing
-            case SPARSE_VEGETATION, SPARSE_TREE, SPARSE_SHRUB, SPARSE_HERBACEOUS_COVER ->
-                Blocks.COARSE_DIRT.defaultBlockState();
+            // Sparse vegetation - colorful climate-aware selection
+            case SPARSE_VEGETATION, SPARSE_TREE, SPARSE_SHRUB, SPARSE_HERBACEOUS_COVER -> {
+                if (temperature > 30.0f && rainfall < 300.0f) {
+                    yield Blocks.RED_SAND.defaultBlockState(); // Desert sparse vegetation
+                } else if (temperature > 25.0f && rainfall < 400.0f) {
+                    yield Blocks.YELLOW_TERRACOTTA.defaultBlockState(); // Semi-arid sparse vegetation
+                } else if (temperature < 0.0f) {
+                    yield Blocks.SNOW_BLOCK.defaultBlockState(); // Cold sparse vegetation
+                } else if (elevation > getSeaLevel() + 200) {
+                    yield Blocks.GRAVEL.defaultBlockState(); // Mountain sparse vegetation
+                } else {
+                    yield Blocks.BROWN_TERRACOTTA.defaultBlockState(); // Temperate sparse vegetation
+                }
+            }
 
             // Lichens and mosses (tundra-like)
             case LICHENS_AND_MOSSES ->
-                temperature < 5.0f ? Blocks.SNOW.defaultBlockState() : Blocks.GRASS_BLOCK.defaultBlockState();
+                temperature < 5.0f ? Blocks.SNOW_BLOCK.defaultBlockState() : Blocks.GRASS_BLOCK.defaultBlockState();
 
-            // Bare areas - stone/grey
-            case BARE, BARE_CONSOLIDATED ->
-                Blocks.STONE.defaultBlockState();
-            case BARE_UNCONSOLIDATED ->
-                Blocks.SAND.defaultBlockState();
+            // Bare areas - climate-aware selection with less stone
+            case BARE, BARE_CONSOLIDATED -> {
+                if (temperature > 30.0f && rainfall < 200.0f) {
+                    yield Blocks.SAND.defaultBlockState(); // Hot desert bare areas
+                } else if (temperature < -5.0f) {
+                    yield Blocks.SNOW_BLOCK.defaultBlockState(); // Cold bare areas
+                } else if (elevation > getSeaLevel() + 300) {
+                    yield Blocks.STONE.defaultBlockState(); // Only high elevation bare rock
+                } else {
+                    yield Blocks.COARSE_DIRT.defaultBlockState(); // Lower elevation bare areas
+                }
+            }
+            case BARE_UNCONSOLIDATED -> {
+                if (temperature > 20.0f && rainfall < 500.0f) {
+                    yield Blocks.SAND.defaultBlockState(); // Desert sand
+                } else {
+                    yield Blocks.GRAVEL.defaultBlockState(); // Temperate loose material
+                }
+            }
 
             // Urban areas - grey
             case URBAN ->
@@ -395,7 +487,7 @@ public class EarthChunkGenerator extends GeoChunkGenerator {
 
             // Permanent snow - white
             case PERMANENT_SNOW ->
-                Blocks.SNOW.defaultBlockState();
+                Blocks.SNOW_BLOCK.defaultBlockState();
 
             // Flooded areas - should be green
             case FRESH_FLOODED_FOREST, SALINE_FLOODED_FOREST, FLOODED_VEGETATION ->
@@ -405,9 +497,18 @@ public class EarthChunkGenerator extends GeoChunkGenerator {
             case TREE_OR_SHRUB_COVER ->
                 temperature > 15.0f ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.PODZOL.defaultBlockState();
 
-            // Default fallback - stone
-            default ->
-                Blocks.STONE.defaultBlockState();
+            // Default fallback - climate-aware with reduced stone
+            default -> {
+                if (temperature < -5.0f) {
+                    yield Blocks.SNOW_BLOCK.defaultBlockState(); // Cold areas
+                } else if (temperature > 25.0f && rainfall < 400.0f) {
+                    yield Blocks.SAND.defaultBlockState(); // Hot dry areas
+                } else if (elevation > getSeaLevel() + 400) {
+                    yield Blocks.STONE.defaultBlockState(); // Only very high elevation
+                } else {
+                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Default temperate
+                }
+            }
         };
     }
 

@@ -63,6 +63,9 @@ dependencies {
 
   implementation "maven.modrinth:DistantHorizonsApi:$distant_horizons_api_version"
   modRuntimeOnly "maven.modrinth:DistantHorizons:$distant_horizons_version"
+
+  // Load any jars from the run/mods directory at runtime
+  modRuntimeOnly fileTree(dir: 'run/mods', include: '*.jar')
 }
 
 sourceSets {
