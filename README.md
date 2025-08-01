@@ -11,6 +11,6 @@ unfortunately, this AI-driven garbage has many downsides:
   
 - the DH surface materials are pretty **inaccurate** due to the lack of fully-supported block types **(11 as of now)**. this branch is open for contributions to improve this trash.
 
-- currently the ideal scale is **1:3** with the default height scale, but it's fine i mean who the hell runs around the earth as a hobby (i do)
+- currently the maximum scale is **1:3** with the default height scale, but it's fine i mean who the hell runs around the earth as a hobby (i do)
 
 - due to the nature of DH's N-sized generation logic, only the **surface biomes and sea** will be generated and not trees or grass or anything fancy, so please don't expect this to replace MSFS 2024
