@@ -122,12 +122,11 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
                 }
                 final IDhApiBlockStateWrapper block = wrappers.getBlockState(blockState);
                 final IDhApiBiomeWrapper biome = Objects.requireNonNull(columnBiome);
-                
-                // Create terrain data point using standard Distant Horizons API
-                // Note: Standard API doesn't support terrain/surface material types yet
+
+                // Calculate proper lighting values based on block properties and position
                 final byte detailLevel = 0; // Full detail for surface materials
-                final int blockLightLevel = 15; // Default light level
-                final int skyLightLevel = 15; // Default sky light level
+                final int blockLightLevel = calculateBlockLightLevel(blockState, lastLayerTop + minY);
+                final int skyLightLevel = calculateSkyLightLevel(blockState, lastLayerTop + minY, layerTop + minY);
 
                 columnDataPoints.add(DhApiTerrainDataPoint.create(
                     detailLevel,
@@ -145,11 +144,13 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
             public void endColumn() {
                 if (lastLayerTop < absoluteTop) {
                     final IDhApiBiomeWrapper biome = Objects.requireNonNull(columnBiome);
-                    // Add air layer using standard API
+                    // Add air layer with proper lighting
+                    final int airStartY = lastLayerTop + minY;
+                    final int airEndY = absoluteTop + minY;
                     columnDataPoints.add(DhApiTerrainDataPoint.create(
                         (byte) 0, // Full detail
-                        15, // Block light level for air
-                        15, // Sky light level for air
+                        0, // Air has no block light
+                        calculateSkyLightLevel(net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), airStartY, airEndY), // Sky light for air
                         lastLayerTop,
                         absoluteTop,
                         wrappers.airBlock(),
@@ -175,6 +176,77 @@ public final class GeoLodGenerator implements IDhApiWorldGenerator {
 
     @Override
     public void close() {
+    }
+
+    /**
+     * Calculates the block light level for a given block state and position.
+     * This determines how much light the block itself emits.
+     */
+    private static int calculateBlockLightLevel(final BlockState blockState, final int worldY) {
+        // Get the light emission value from the block
+        final int blockLightEmission = blockState.getLightEmission();
+
+        // Most terrain blocks don't emit light
+        if (blockLightEmission > 0) {
+            return blockLightEmission;
+        }
+
+        // Default to no block light for terrain
+        return 0;
+    }
+
+    /**
+     * Calculates the sky light level for a given block state and position.
+     * This determines how much skylight reaches this block.
+     */
+    private static int calculateSkyLightLevel(final BlockState blockState, final int startY, final int endY) {
+        final var block = blockState.getBlock();
+
+        // Air and transparent blocks get full sky light
+        if (block == net.minecraft.world.level.block.Blocks.AIR) {
+            return 15;
+        }
+
+        // Water reduces sky light but doesn't block it completely
+        if (block == net.minecraft.world.level.block.Blocks.WATER) {
+            return 12;
+        }
+
+        // Transparent/translucent blocks get reduced sky light
+        if (blockState.canOcclude() == false || blockState.getLightBlock() < 15) {
+            return Math.max(10, 15 - blockState.getLightBlock());
+        }
+
+        // Surface blocks (top layer) should get some sky light
+        // This helps prevent the "fully dark" appearance at night
+        if (isLikelySurfaceBlock(blockState)) {
+            return 8; // Reduced but not zero sky light for surface terrain
+        }
+
+        // Underground/solid blocks get minimal sky light
+        return 2;
+    }
+
+    /**
+     * Determines if a block is likely to be a surface block that should receive some sky light.
+     */
+    private static boolean isLikelySurfaceBlock(final BlockState blockState) {
+        final var block = blockState.getBlock();
+        return block == net.minecraft.world.level.block.Blocks.GRASS_BLOCK ||
+               block == net.minecraft.world.level.block.Blocks.SAND ||
+               block == net.minecraft.world.level.block.Blocks.SNOW_BLOCK ||
+               block == net.minecraft.world.level.block.Blocks.FARMLAND ||
+               block == net.minecraft.world.level.block.Blocks.PODZOL ||
+               block == net.minecraft.world.level.block.Blocks.COARSE_DIRT ||
+               block == net.minecraft.world.level.block.Blocks.DIRT ||
+               // Include our new colorful surface materials
+               block == net.minecraft.world.level.block.Blocks.RED_SAND ||
+               block == net.minecraft.world.level.block.Blocks.ORANGE_TERRACOTTA ||
+               block == net.minecraft.world.level.block.Blocks.YELLOW_TERRACOTTA ||
+               block == net.minecraft.world.level.block.Blocks.BROWN_TERRACOTTA ||
+               block == net.minecraft.world.level.block.Blocks.MOSS_BLOCK ||
+               block == net.minecraft.world.level.block.Blocks.MYCELIUM ||
+               block == net.minecraft.world.level.block.Blocks.JUNGLE_LEAVES;
     }
 
     /**
