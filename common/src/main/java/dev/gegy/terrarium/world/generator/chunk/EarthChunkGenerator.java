@@ -339,17 +339,9 @@ public class EarthChunkGenerator extends GeoChunkGenerator {
             return Blocks.SNOW_BLOCK.defaultBlockState();
         }
 
-        // Hot and dry areas get colorful desert materials based on elevation and temperature
+        // BLOCK-PERFECT: Hot and dry areas get sand (matches vanilla desert surface rules)
         if (temperature > 20.0f && rainfall < 400.0f) {
-            if (temperature > 35.0f && rainfall < 100.0f) {
-                return Blocks.RED_SAND.defaultBlockState(); // Extreme hot desert
-            } else if (temperature > 30.0f && rainfall < 200.0f) {
-                return Blocks.ORANGE_TERRACOTTA.defaultBlockState(); // Hot arid desert
-            } else if (temperature > 25.0f && rainfall < 300.0f) {
-                return Blocks.YELLOW_TERRACOTTA.defaultBlockState(); // Warm semi-arid
-            } else {
-                return Blocks.SAND.defaultBlockState(); // Regular desert
-            }
+            return Blocks.SAND.defaultBlockState(); // Use only vanilla sand for all desert types
         }
 
         // High elevation areas get stone only if EXTREMELY high and not cold
@@ -361,76 +353,54 @@ public class EarthChunkGenerator extends GeoChunkGenerator {
         // Surface material selection based on land cover, climate, and elevation
 
         return switch (landCover) {
-            // Forest types - colorful climate-aware materials
+            // BLOCK-PERFECT: Forest types - use only vanilla surface materials
             case BROADLEAF_EVERGREEN -> {
-                if (temperature > 25.0f && rainfall > 1200.0f) {
-                    yield Blocks.MOSS_BLOCK.defaultBlockState(); // Tropical rainforest
-                } else if (temperature > 20.0f && rainfall > 800.0f) {
-                    yield Blocks.JUNGLE_LEAVES.defaultBlockState(); // Subtropical forest
+                if (temperature < 5.0f) {
+                    yield Blocks.PODZOL.defaultBlockState(); // Cold forest (matches vanilla taiga)
                 } else {
-                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Temperate evergreen
+                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Temperate forest (matches vanilla forest)
                 }
             }
             case BROADLEAF_DECIDUOUS, BROADLEAF_DECIDUOUS_CLOSED, BROADLEAF_DECIDUOUS_OPEN -> {
                 if (temperature < 5.0f) {
-                    yield Blocks.PODZOL.defaultBlockState(); // Cold deciduous
-                } else if (rainfall < 400.0f) {
-                    yield Blocks.COARSE_DIRT.defaultBlockState(); // Dry deciduous
+                    yield Blocks.PODZOL.defaultBlockState(); // Cold deciduous (matches vanilla taiga)
                 } else {
-                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Temperate deciduous
+                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Temperate deciduous (matches vanilla forest)
                 }
             }
             case NEEDLE_LEAF_EVERGREEN, NEEDLE_LEAF_EVERGREEN_CLOSED, NEEDLE_LEAF_EVERGREEN_OPEN,
                  NEEDLE_LEAF_DECIDUOUS, NEEDLE_LEAF_DECIDUOUS_CLOSED, NEEDLE_LEAF_DECIDUOUS_OPEN -> {
                 if (temperature < -5.0f) {
-                    yield Blocks.SNOW_BLOCK.defaultBlockState(); // Arctic boreal
-                } else if (temperature < 0.0f) {
-                    yield Blocks.POWDER_SNOW.defaultBlockState(); // Cold boreal
-                } else if (temperature < 10.0f) {
-                    yield Blocks.PODZOL.defaultBlockState(); // Boreal forest
+                    yield Blocks.SNOW_BLOCK.defaultBlockState(); // Arctic (matches vanilla snowy taiga)
                 } else {
-                    yield Blocks.MYCELIUM.defaultBlockState(); // Temperate coniferous
+                    yield Blocks.PODZOL.defaultBlockState(); // Boreal forest (matches vanilla taiga)
                 }
             }
             case MIXED_LEAF_TYPE -> {
-                if (temperature > 15.0f && rainfall > 800.0f) {
-                    yield Blocks.MOSS_BLOCK.defaultBlockState(); // Wet mixed forest
-                } else if (temperature > 10.0f) {
-                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Temperate mixed
+                if (temperature < 5.0f) {
+                    yield Blocks.PODZOL.defaultBlockState(); // Cold mixed forest (matches vanilla taiga)
                 } else {
-                    yield Blocks.PODZOL.defaultBlockState(); // Cold mixed
+                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Temperate mixed (matches vanilla forest)
                 }
             }
 
-            // Grassland and herbaceous cover - colorful climate-aware materials
+            // BLOCK-PERFECT: Grassland - use only vanilla grassland materials
             case GRASSLAND, HERBACEOUS_COVER, HERBACEOUS_COVER_WITH_TREE_AND_SHRUB -> {
                 if (temperature < -5.0f) {
-                    yield Blocks.SNOW_BLOCK.defaultBlockState(); // Cold grassland
-                } else if (temperature > 30.0f && rainfall < 300.0f) {
-                    yield Blocks.YELLOW_TERRACOTTA.defaultBlockState(); // Hot dry savanna
-                } else if (temperature > 25.0f && rainfall < 500.0f) {
-                    yield Blocks.ORANGE_TERRACOTTA.defaultBlockState(); // Warm dry grassland
-                } else if (rainfall > 1000.0f) {
-                    yield Blocks.MOSS_BLOCK.defaultBlockState(); // Wet grassland
-                } else if (rainfall < 300.0f) {
-                    yield Blocks.BROWN_TERRACOTTA.defaultBlockState(); // Dry steppe
+                    yield Blocks.SNOW_BLOCK.defaultBlockState(); // Cold grassland (matches vanilla snowy plains)
                 } else {
-                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Normal grassland
+                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Normal grassland (matches vanilla plains)
                 }
             }
 
-            // Shrubland - colorful climate-aware materials
+            // BLOCK-PERFECT: Shrubland - use vanilla savanna-equivalent materials
             case SHRUBLAND, SHRUBLAND_EVERGREEN, SHRUBLAND_DECIDUOUS, TREE_AND_SHRUB_WITH_HERBACEOUS_COVER -> {
                 if (temperature < -5.0f) {
                     yield Blocks.SNOW_BLOCK.defaultBlockState(); // Cold shrubland
-                } else if (temperature > 30.0f && rainfall < 400.0f) {
-                    yield Blocks.RED_SAND.defaultBlockState(); // Desert shrubland
-                } else if (temperature > 25.0f && rainfall < 600.0f) {
-                    yield Blocks.ORANGE_TERRACOTTA.defaultBlockState(); // Arid shrubland
-                } else if (rainfall > 800.0f) {
-                    yield Blocks.MOSS_BLOCK.defaultBlockState(); // Wet shrubland
+                } else if (temperature > 25.0f && rainfall < 400.0f) {
+                    yield Blocks.SAND.defaultBlockState(); // Desert shrubland (matches vanilla desert)
                 } else {
-                    yield Blocks.COARSE_DIRT.defaultBlockState(); // Temperate shrubland
+                    yield Blocks.GRASS_BLOCK.defaultBlockState(); // Temperate shrubland (matches vanilla savanna)
                 }
             }
 
@@ -438,18 +408,14 @@ public class EarthChunkGenerator extends GeoChunkGenerator {
             case RAINFED_CROPLAND, IRRIGATED_CROPLAND, CROPLAND_WITH_VEGETATION, VEGETATION_WITH_CROPLAND ->
                 Blocks.FARMLAND.defaultBlockState();
 
-            // Sparse vegetation - colorful climate-aware selection
+            // BLOCK-PERFECT: Sparse vegetation - use vanilla materials
             case SPARSE_VEGETATION, SPARSE_TREE, SPARSE_SHRUB, SPARSE_HERBACEOUS_COVER -> {
-                if (temperature > 30.0f && rainfall < 300.0f) {
-                    yield Blocks.RED_SAND.defaultBlockState(); // Desert sparse vegetation
-                } else if (temperature > 25.0f && rainfall < 400.0f) {
-                    yield Blocks.YELLOW_TERRACOTTA.defaultBlockState(); // Semi-arid sparse vegetation
+                if (temperature > 25.0f && rainfall < 400.0f) {
+                    yield Blocks.SAND.defaultBlockState(); // Desert sparse vegetation (matches vanilla desert)
                 } else if (temperature < 0.0f) {
                     yield Blocks.SNOW_BLOCK.defaultBlockState(); // Cold sparse vegetation
-                } else if (elevation > getSeaLevel() + 200) {
-                    yield Blocks.GRAVEL.defaultBlockState(); // Mountain sparse vegetation
                 } else {
-                    yield Blocks.BROWN_TERRACOTTA.defaultBlockState(); // Temperate sparse vegetation
+                    yield Blocks.COARSE_DIRT.defaultBlockState(); // Temperate sparse vegetation
                 }
             }
 

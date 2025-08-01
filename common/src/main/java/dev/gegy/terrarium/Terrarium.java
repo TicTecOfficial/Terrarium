@@ -13,6 +13,7 @@ import dev.gegy.terrarium.backend.expr.predictor.PredictorNode;
 import dev.gegy.terrarium.backend.loader.ConcurrencyLimiter;
 import dev.gegy.terrarium.backend.tile.TileCache;
 import dev.gegy.terrarium.command.GeoTeleportCommand;
+import dev.gegy.terrarium.command.TemperatureCommand;
 import dev.gegy.terrarium.integration.distant_horizons.DistantHorizonsIntegration;
 import dev.gegy.terrarium.registry.HolderClassifierNode;
 import dev.gegy.terrarium.registry.HolderPredictorNode;
@@ -111,6 +112,7 @@ public class Terrarium {
 
     public static void registerCommands(final CommandDispatcher<CommandSourceStack> dispatcher, final CommandBuildContext context) {
         GeoTeleportCommand.register(dispatcher);
+        TemperatureCommand.register(dispatcher);
     }
 
     public static EarthTiles createTiles(final TileCache cache) {
